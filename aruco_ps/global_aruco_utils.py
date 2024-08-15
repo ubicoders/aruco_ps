@@ -19,9 +19,9 @@ def check_nan_np(x):
 
 def cveul_aaeeul(cveul):
     aaeeul = np.zeros(3)
-    aaeeul[0] = -cveul[2]
+    aaeeul[0] = cveul[2]
     aaeeul[1] = cveul[0]
-    aaeeul[2] = -cveul[1]
+    aaeeul[2] = cveul[1]
     return aaeeul
 
 def eul2rotm(eul):
@@ -57,12 +57,9 @@ def cvXYZ_aaeXYZ(cvXYZ):
         aaeXYZ = np.array([0., 0., 0.])
     return aaeXYZ
 
-def get_aae_T(cveul, cvXYZ):
-
-    aaeXYZ = cvXYZ_aaeXYZ(cvXYZ)
-    aaeeul = cveul_aaeeul(cveul)
-    R = eul2rotm(aaeeul)
+def get_aae_T(eul_aa, XYZ_aa):
+    R = eul2rotm(eul_aa)
     T = np.eye(4)
     T[:3, :3] = R
-    T[:3, 3] = aaeXYZ
+    T[:3, 3] = XYZ_aa
     return T

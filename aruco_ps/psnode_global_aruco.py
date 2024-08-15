@@ -5,9 +5,23 @@ import numpy as np
 from .perf_utils import TimerTicTok
 from aruco_interface.msg import ImageMarkers
 from rclpy.qos import QoSProfile
-from .global_aruco_utils import get_aae_T,check_nan_np
+from .global_aruco_utils import get_aae_T, check_nan_np, cveul_aaeeul, cvXYZ_aaeXYZ
+from geometry_msgs.msg import Vector3
 # format numpy to print all 3 decimals
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
+class LowPassFilter:
+    def __init__(self, alpha):
+        self.alpha = alpha
+        self.low_pass_vec3 = np.zeros(3)
+    
+    def update(self, new_vec3):
+        if (check_nan_np(new_vec3)):
+            return self.low_pass_vec3
+        self.low_pass_vec3 = self.alpha * self.low_pass_vec3 + (1 - self.alpha) * new_vec3
+        return self.low_pass_vec3
+
+
 
 class GlobalArucoPSNode(Node):
     def __init__(self):
@@ -16,6 +30,7 @@ class GlobalArucoPSNode(Node):
         # tic-tok timer
         self.tictok = TimerTicTok()
 
+        # subscriber to aruco depth image
         qos_profile = QoSProfile(depth=10)
         self.aruco_subs = self.create_subscription(
                 ImageMarkers,
@@ -23,7 +38,14 @@ class GlobalArucoPSNode(Node):
                 self.handle_aruco,
                 qos_profile)
         
-        self.low_pass_vec3 = np.zeros(3)
+        # publisher for cam global pose
+        self.cam_gp_pub = self.create_publisher(Vector3, '/cam/global_pose', qos_profile)
+
+        
+        self.lp_pos = LowPassFilter(0.9)
+        self.lp_eul = LowPassFilter(0.9)
+
+
 
         
     def handle_aruco(self, msg):
@@ -46,7 +68,8 @@ class GlobalArucoPSNode(Node):
             eul_list.append(eul)
             xyz_list.append(xyz)
             tvec_list.append(tvec)
-
+        
+        
 
         # calcualte average pose and rotation
         if (len(eul_list) == 0 or len(xyz_list) == 0 or len(tvec_list) == 0):
@@ -57,26 +80,37 @@ class GlobalArucoPSNode(Node):
         xyz_avg = np.mean(np.array(xyz_list), axis=0)
         tvec_avg = np.mean(np.array(tvec_list), axis=0)
 
-        if (check_nan_np(eul_avg) or check_nan_np(xyz_avg) or check_nan_np(tvec_avg)):
-            print(f"Error: NaN detected in average")
-            aaeT = np.eye(4)
-        else:
-            aaeT = get_aae_T(eul_avg, xyz_avg)
-        self.get_logger().info(f"Transform: \n{aaeT}")
+        # self.get_logger().info(f"Average Euler: {eul_avg*180.0/np.pi}")
+        # self.get_logger().info(f"Average XYZ: {xyz_avg}")
+        # self.get_logger().info(f"Average Tvec: {tvec_avg}")
 
 
-        # calculate my pose
-        aruco_global_pose = np.array([4.3, 0., -1, 1.0])
-        aaeT_inv = np.linalg.inv(aaeT)
-        #self.get_logger().info(f"inv T: {aaeT_inv}")
-        my_global_pose = aaeT_inv @ aruco_global_pose
-        #self.get_logger().info(f"My pose: {my_global_pose}")
+        self.lp_eul.update(eul_avg)
+        self.lp_pos.update(xyz_avg)
 
-        alpha = 0.9
-        self.low_pass_vec3 = alpha * self.low_pass_vec3 + (1 - alpha) * my_global_pose[0:3]
-        self.get_logger().info(f"Low pass: {self.low_pass_vec3}")
-            
-    
+        eul_aae = cveul_aaeeul(self.lp_eul.low_pass_vec3)
+        xyz_aae = cvXYZ_aaeXYZ(self.lp_pos.low_pass_vec3)
+        # self.get_logger().info(f"Filtered Euler CV: {self.lp_eul.low_pass_vec3*180.0/np.pi}")
+        # self.get_logger().info(f"Filtered Euler AA: {cveul_aaeeul(self.lp_eul.low_pass_vec3)*180.0/np.pi}")
+        # self.get_logger().info(f"Filtered XYZ CV: {self.lp_pos.low_pass_vec3}")
+        # self.get_logger().info(f"Filtered XYZ AA: {cvXYZ_aaeXYZ(self.lp_pos.low_pass_vec3)}")
+
+        arT_board2cam = get_aae_T(eul_aae, xyz_aae)
+        # self.get_logger().info(f"Transform: \n{arT_board2cam}")
+
+        aruco_T_b2g = np.eye(4)
+        aruco_T_b2g[0:3, 0:3] = np.eye(3)
+        aruco_T_b2g[0:3, 3] = np.array([4.3, 0.0, -1])
+
+        cam_global_T = aruco_T_b2g @ np.linalg.inv(arT_board2cam)
+        cam_gp = cam_global_T[0:3, 3]
+        cam_gp_msg = Vector3()
+        cam_gp_msg.x = cam_gp[0]
+        cam_gp_msg.y = cam_gp[1]
+        cam_gp_msg.z = cam_gp[2]
+        self.cam_gp_pub.publish(cam_gp_msg)
+        # self.get_logger().info(f"Cam Global Pose: \n{cam_global_pose}")
+
 
 
 def main(args=None):
@@ -85,8 +119,6 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-    
-
 
 if __name__ == "__main__":
     main()
