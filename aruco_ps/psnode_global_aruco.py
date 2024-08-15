@@ -16,12 +16,17 @@ class GlobalArucoPSNode(Node):
         qos_profile = QoSProfile(depth=10)
         self.aruco_subs = self.create_subscription(
                 ImageMarkers,
-                '/cam/aruco',
+                '/cam/aruco_depth',
                 self.handle_aruco,
                 qos_profile)
         
     def handle_aruco(self, msg):
-        self.get_logger().info(f"Received ImageMarkers: {msg}")
+        aruco_marker_list = msg.aruco_markers_0
+        for marker in aruco_marker_list:
+            mid = marker.mid
+            eul = ""
+            xyz = marker.xyz
+            self.get_logger().info(f"Marker ID: {mid}, 3D coordinates: {xyz.x}, {xyz.y}, {xyz.z}")
     
 
 
