@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "global_aruco_node = aruco_ps.psnode_global_aruco:main",
         ],
     },
 )
