@@ -19,7 +19,7 @@ def check_nan_np(x):
 
 def cveul_aaeeul(cveul):
     aaeeul = np.zeros(3)
-    aaeeul[0] = cveul[2]
+    aaeeul[0] = -cveul[2]
     aaeeul[1] = cveul[0]
     aaeeul[2] = -cveul[1]
     return aaeeul
@@ -50,7 +50,7 @@ def eul2rotm(eul):
 def cvXYZ_aaeXYZ(cvXYZ):
     aaeXYZ = np.zeros(3)
     try:
-        aaeXYZ[0] = cvXYZ[2]
+        aaeXYZ[0] = -cvXYZ[2]
         aaeXYZ[1] = cvXYZ[0]
         aaeXYZ[2] = -cvXYZ[1]
     except:

@@ -23,6 +23,9 @@ class GlobalArucoPSNode(Node):
                 self.handle_aruco,
                 qos_profile)
         
+        self.low_pass_vec3 = np.zeros(3)
+
+        
     def handle_aruco(self, msg):
         self.tictok.update()
         self.tictok.pprint()
@@ -45,7 +48,7 @@ class GlobalArucoPSNode(Node):
             tvec_list.append(tvec)
 
 
-        # calcualte average
+        # calcualte average pose and rotation
         if (len(eul_list) == 0 or len(xyz_list) == 0 or len(tvec_list) == 0):
             eul_avg = np.array([0., 0., 0.])
             xyz_avg = np.array([0., 0., 0.])
@@ -60,6 +63,18 @@ class GlobalArucoPSNode(Node):
         else:
             aaeT = get_aae_T(eul_avg, xyz_avg)
         self.get_logger().info(f"Transform: \n{aaeT}")
+
+
+        # calculate my pose
+        aruco_global_pose = np.array([4.3, 0., -1, 1.0])
+        aaeT_inv = np.linalg.inv(aaeT)
+        #self.get_logger().info(f"inv T: {aaeT_inv}")
+        my_global_pose = aaeT_inv @ aruco_global_pose
+        #self.get_logger().info(f"My pose: {my_global_pose}")
+
+        alpha = 0.9
+        self.low_pass_vec3 = alpha * self.low_pass_vec3 + (1 - alpha) * my_global_pose[0:3]
+        self.get_logger().info(f"Low pass: {self.low_pass_vec3}")
             
     
 
