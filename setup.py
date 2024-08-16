@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             "global_aruco_node = aruco_ps.psnode_global_aruco:main",
+            "body_aruco_node = aruco_ps.psnode_body_aruco:main",    
         ],
     },
 )
