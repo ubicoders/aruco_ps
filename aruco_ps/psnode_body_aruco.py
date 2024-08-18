@@ -44,8 +44,8 @@ class BodyArucoPSNode(Node):
         
         
     def handle_aruco(self, msg):
-        self.tictok.update()
-        self.tictok.pprint()
+        # self.tictok.update()
+        # self.tictok.pprint()
 
         aruco_marker_list = msg.aruco_markers_0
         tvec_list = []
@@ -66,7 +66,7 @@ class BodyArucoPSNode(Node):
         
 
         tvec_avg = np.mean(np.array(tvec_list), axis=0)
-        self.get_logger().info(f"Average Tvec: {tvec_avg}") 
+        #self.get_logger().info(f"Average Tvec: {tvec_avg}") 
         
         T_cam2global = np.eye(4)
         T_cam2global[:3, 3] = np.array([-4.3, 0.0, 0.0])
